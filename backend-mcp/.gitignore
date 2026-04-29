@@ -1,0 +1,181 @@
+# =========================
+# 🐍 Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# =========================
+# 📦 Virtual Environments
+# =========================
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# =========================
+# 🔐 Environment Variables
+# =========================
+.env.*
+!.env.example
+*.env
+*.env.local
+*.env.production
+
+# =========================
+# 🧪 Testing & Coverage
+# =========================
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# =========================
+# 🧹 Logs & Runtime Files
+# =========================
+*.log
+logs/
+*.pid
+*.seed
+*.pid.lock
+
+# =========================
+# 🧠 Type Checking / Linting
+# =========================
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.ruff_cache/
+
+# =========================
+# ⚡ FastAPI / Uvicorn / Gunicorn
+# =========================
+*.sock
+*.pid
+
+# =========================
+# 🐳 Docker
+# =========================
+.dockerignore
+docker-compose.override.yml
+
+# =========================
+# 🗄️ Databases
+# =========================
+*.db
+*.sqlite3
+*.sqlite
+
+# Alembic (optional: keep migrations if needed)
+# Uncomment if you DON'T want migrations tracked
+# alembic/versions/
+
+# =========================
+# 📁 Static & Media Files
+# =========================
+static/
+media/
+uploads/
+
+# =========================
+# 🧰 IDEs & Editors
+# =========================
+
+## VS Code
+.vscode/
+
+## PyCharm / IntelliJ
+.idea/
+*.iml
+
+## Sublime
+*.sublime-project
+*.sublime-workspace
+
+# =========================
+# 🖥️ OS Files
+# =========================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# =========================
+# 📦 Node (if using Next.js frontend in same repo)
+# =========================
+node_modules/
+.next/
+out/
+build/
+
+# =========================
+# 🔑 Secrets & Keys
+# =========================
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# =========================
+# 📊 Misc
+# =========================
+*.csv
+*.tsv
+
+# Ignore temporary files
+*.swp
+*.swo
+*~
+
+# =========================
+# 📚 Documentation builds
+# =========================
+docs/_build/
+
+# =========================
+# 🧵 Celery / Background Jobs
+# =========================
+celerybeat-schedule
+celerybeat.pid
+
+# =========================
+# 🧪 Jupyter Notebooks
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# 🔄 Temporary files
+# =========================
+tmp/
+temp/
