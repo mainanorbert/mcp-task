@@ -1,0 +1,8 @@
+---
+alwaysApply: true
+---
+Properly document modules
+
+Use Doc string to ensure complex code us porperly documented
+
+Simple functions should have a one line comment explain them

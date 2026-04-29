@@ -1,0 +1,52 @@
+---
+alwaysApply: true
+---
+Here is a refined, clear, and precise breakdown of your FastAPI structure:
+## 📂 Project Architecture## 1. main.py (The Orchestrator)
+
+* Purpose: Entry point for the FastAPI application.
+* Key Responsibilities:
+* Initialize FastAPI() instance.
+   * Configure Middleware (CORS, logging).
+   * Include Routers (app.include_router).
+   * Manage Lifespan Events (startup/shutdown).
+* Constraint: Zero business logic; only "wires" the app together. [1, 2, 3, 4, 5] 
+
+## 2. api/ (The Communication Layer)
+
+* Purpose: Handles HTTP requests and responses.
+* Key Responsibilities:
+* Define Routes (@router.get, @router.post).
+   * Manage Dependency Injection (auth, database sessions).
+* Constraint: No complex processing. Use the pattern: Receive Request → Call Service → Return Response. [6, 7, 8, 9, 10] 
+
+## 3. schemas/ (The Validation Layer)
+
+* Purpose: Defines data structure for input and output.
+* Key Responsibilities:
+* Pydantic Models for request/response bodies.
+   * Data Validation rules and type safety.
+   * Output formatting and serialization. [11, 12, 13, 14, 15] 
+
+## 4. services/ (The Business Logic Layer)
+
+* Purpose: The core engine of the application.
+* Key Responsibilities:
+* Execute Business Rules and data processing.
+   * Manage External Integrations (MCP, third-party APIs).
+* Constraint: Must be independent of FastAPI. This layer should be reusable and testable without the web framework. [16, 17, 18, 19, 20] 
+
+## 5. core/ (The Infrastructure Layer)
+
+* Purpose: Shared configuration and global utilities.
+* Key Responsibilities:
+* Config: Environment variables and app settings.
+   * Security: JWT handling, password hashing.
+   * Setup: Database connections and global constants. [21, 22, 23, 24, 25]
+
+### 6. `architecture/` (Documentation Layer)
+- **Role:** System blueprints.
+- **Content:** UML diagrams (Mermaid), and high-level design docs. No executable Python code.
+
+### 7. docs
+- ADR

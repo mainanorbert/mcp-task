@@ -6,7 +6,10 @@ from agents.models.openai_provider import OpenAIProvider
 from agents.tracing import trace
 from openai import AsyncOpenAI
 
+from core.logging import get_logger
 from core.prompts import get_web_investigator_instructions
+
+logger = get_logger(__name__)
 
 
 class WebInvestigatorError(Exception):
@@ -37,6 +40,12 @@ async def run_web_investigator(
     provider = OpenAIProvider(openai_client=openai_client, use_responses=False)
     model = provider.get_model(model_name)
     try:
+        logger.info(
+            "web_investigator_started model=%s max_turns=%s timeout_seconds=%.2f",
+            model_name,
+            max_turns,
+            mcp_session_timeout_seconds,
+        )
         async with MCPServerStdio(
             params=playwright_params,
             name="playwright",
@@ -51,12 +60,14 @@ async def run_web_investigator(
             with trace("web_investigate"):
                 result = await Runner.run(agent, user_task, max_turns=max_turns)
     except Exception as exc:
+        logger.warning("web_investigator_failed model=%s error=%r", model_name, exc)
         raise WebInvestigatorError(
             "Web investigator failed (ensure Node.js/npx is installed and outbound network is "
             f"allowed). Details: {exc!r}"
         ) from exc
 
     final = result.final_output
+    logger.info("web_investigator_completed model=%s", model_name)
     if isinstance(final, str):
         return final
     return str(final)

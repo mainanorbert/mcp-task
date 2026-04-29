@@ -1,16 +1,19 @@
 """Application settings loaded from environment variables."""
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 
 class Settings(BaseSettings):
     """Runtime configuration for the chat API."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=BACKEND_ROOT / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -20,6 +23,7 @@ class Settings(BaseSettings):
         description="OpenAI API key (set OPENAI_API_KEY in Render → Environment)",
     )
     openai_model: str = Field(default="gpt-4.1-mini", description="Chat model id")
+    log_level: str = Field(default="INFO", description="Python logging level")
     cors_origins: str = Field(
         default="http://localhost:3000,https://frontend-mcp-chi.vercel.app,https://mcp-task-1.onrender.com",
         description="Comma-separated browser origins allowed for CORS",
