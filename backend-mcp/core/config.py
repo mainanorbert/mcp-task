@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     )
     openai_model: str = Field(default="gpt-4.1-mini", description="Chat model id")
     cors_origins: str = Field(
-        default="http://localhost:3000,https://frontend-mcp-chi.vercel.app,https://mcp-task-1.onrender.com/",
+        default="http://localhost:3000,https://frontend-mcp-chi.vercel.app,https://mcp-task-1.onrender.com",
         description="Comma-separated browser origins allowed for CORS",
     )
     web_agent_max_turns: int = Field(
