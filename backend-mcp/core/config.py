@@ -28,17 +28,6 @@ class Settings(BaseSettings):
         default="http://localhost:3000,https://frontend-mcp-chi.vercel.app,https://mcp-task-1.onrender.com",
         description="Comma-separated browser origins allowed for CORS",
     )
-    web_agent_max_turns: int = Field(
-        default=25,
-        ge=1,
-        le=80,
-        description="Max agent loop turns when use_web_search is enabled",
-    )
-    mcp_playwright_session_timeout_seconds: float = Field(
-        default=120.0,
-        ge=15.0,
-        description="MCP client read timeout for the Playwright stdio server",
-    )
 
 
 @lru_cache

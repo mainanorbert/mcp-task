@@ -11,18 +11,6 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 RUN pip install --no-cache-dir uv
 
-# Playwright MCP is started via `npx` (Node). Install a current Node from NodeSource.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
-    && mkdir -p /etc/apt/keyrings \
-    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
-        | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" \
-        > /etc/apt/sources.list.d/nodesource.list \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
-
 # Lockfile layer: reinstall only when dependencies change.
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project --no-dev

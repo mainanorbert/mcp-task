@@ -20,10 +20,6 @@ class ChatRequest(BaseModel):
         min_length=1,
         description="Prior turns; must end with a user message",
     )
-    use_web_search: bool = Field(
-        default=False,
-        description="If true, run the Playwright MCP investigator instead of plain chat",
-    )
 
 
 class ChatResponse(BaseModel):

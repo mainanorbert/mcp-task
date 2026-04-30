@@ -15,37 +15,11 @@ type ChatLine = {
   content: string;
 };
 
-type StreamEvent = {
-  event: string;
-  data: Record<string, string>;
-};
-
 const default_api_base = "http://localhost:8000";
 
 function get_api_base(): string {
   const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "";
   return base || default_api_base;
-}
-
-function parseStreamEvent(block: string): StreamEvent | null {
-  let event = "message";
-  const dataLines: string[] = [];
-
-  for (const line of block.split("\n")) {
-    if (line.startsWith("event:")) {
-      event = line.slice("event:".length).trim();
-    } else if (line.startsWith("data:")) {
-      dataLines.push(line.slice("data:".length).trimStart());
-    }
-  }
-
-  if (dataLines.length === 0) return null;
-
-  try {
-    return { event, data: JSON.parse(dataLines.join("\n")) };
-  } catch {
-    return { event, data: {} };
-  }
 }
 
 function renderInlineMarkdown(text: string, keyPrefix: string): ReactNode[] {
@@ -151,13 +125,8 @@ function MarkdownMessage({ content }: { content: string }) {
 
     const heading = /^(#{1,6})\s+(.+)$/.exec(line);
     if (heading) {
-      const level = Math.min(heading[1].length, 3);
-      const className =
-        level === 1
-          ? "mb-2 mt-1 text-base font-semibold"
-          : "mb-1 mt-2 text-sm font-semibold";
       blocks.push(
-        <div key={`heading-${index}`} className={className}>
+        <div key={`heading-${index}`} className="mb-1 mt-2 text-sm font-semibold">
           {renderInlineMarkdown(heading[2], `heading-${index}`)}
         </div>,
       );
@@ -301,9 +270,7 @@ function MarkdownMessage({ content }: { content: string }) {
 export default function Chat() {
   const [messages, setMessages] = useState<ChatLine[]>([]);
   const [input, setInput] = useState("");
-  const [useWebSearch, setUseWebSearch] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [streamStatus, setStreamStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -322,12 +289,11 @@ export default function Chat() {
     if (!trimmed || loading) return;
 
     const prior = messages;
-    setError(null);
-    setStreamStatus(useWebSearch ? "Searching the web..." : "Thinking...");
     const userLine: ChatLine = { role: "user", content: trimmed };
     const nextHistory = [...prior, userLine];
-    const assistantLine: ChatLine = { role: "assistant", content: "" };
-    setMessages([...nextHistory, assistantLine]);
+
+    setError(null);
+    setMessages(nextHistory);
     setInput("");
     setLoading(true);
     scrollToBottom();
@@ -341,88 +307,35 @@ export default function Chat() {
             role: m.role,
             content: m.content,
           })),
-          use_web_search: useWebSearch,
         }),
       });
 
       if (!res.ok) {
-        const detail = await res.text();
-        throw new Error(detail || res.statusText);
+        const detail = await res.json().catch(() => null);
+        throw new Error(detail?.detail || res.statusText);
       }
 
-      if (!res.body) {
-        throw new Error("Streaming response was empty");
+      const data = (await res.json()) as { message?: string };
+      if (typeof data.message !== "string") {
+        throw new Error("Response did not include a message");
       }
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        buffer += decoder
-          .decode(value, { stream: !done })
-          .replace(/\r\n/g, "\n");
-
-        let boundary = buffer.indexOf("\n\n");
-        while (boundary !== -1) {
-          const block = buffer.slice(0, boundary);
-          buffer = buffer.slice(boundary + 2);
-
-          const parsed = parseStreamEvent(block);
-          if (parsed?.event === "delta") {
-            const content = parsed.data.content ?? "";
-            setMessages((prev) =>
-              prev.map((m, index) =>
-                index === prev.length - 1 && m.role === "assistant"
-                  ? { ...m, content: m.content + content }
-                  : m,
-              ),
-            );
-            setStreamStatus(null);
-            scrollToBottom();
-          } else if (parsed?.event === "status") {
-            setStreamStatus(parsed.data.message ?? null);
-          } else if (parsed?.event === "error") {
-            throw new Error(parsed.data.message || "Request failed");
-          } else if (parsed?.event === "done") {
-            setStreamStatus(null);
-          }
-
-          boundary = buffer.indexOf("\n\n");
-        }
-
-        if (done) break;
-      }
+      setMessages([...nextHistory, { role: "assistant", content: data.message }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Request failed");
       setMessages(prior);
     } finally {
       setLoading(false);
-      setStreamStatus(null);
       scrollToBottom();
     }
   }
 
   return (
-    <div className="flex h-[min(720px,calc(100vh-8rem))] w-full max-w-2xl flex-col rounded-2xl border border-zinc-200 bg-zinc-50 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="flex h-[min(720px,calc(100vh-8rem))] w-full max-w-2xl flex-col rounded-lg border border-zinc-200 bg-zinc-50 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       <header className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
         <h1 className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-          Chat
+          mcp challenge
         </h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Polite assistant — abusive or harmful requests are declined gently.
-        </p>
-        <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-          <input
-            type="checkbox"
-            checked={useWebSearch}
-            onChange={(e) => setUseWebSearch(e.target.checked)}
-            disabled={loading}
-            className="size-4 rounded border-zinc-300"
-          />
-          Search the web (Playwright MCP — slower; needs Node on the server)
-        </label>
       </header>
 
       <div
@@ -431,13 +344,10 @@ export default function Chat() {
       >
         {messages.length === 0 && (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Send a message to start. The model is{" "}
-            <span className="font-mono text-zinc-700 dark:text-zinc-300">
-              gpt-4.1-mini
-            </span>{" "}
-            via your backend API.
+            Send a message to start.
           </p>
         )}
+
         {messages.map((m, i) => (
           <div
             key={`${i}-${m.role}`}
@@ -447,15 +357,15 @@ export default function Chat() {
                 : "mr-auto border border-zinc-200 bg-white text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             }`}
           >
-            {m.content ? (
-              <MarkdownMessage content={m.content} />
-            ) : loading && i === messages.length - 1 ? (
-              streamStatus
-            ) : (
-              ""
-            )}
+            <MarkdownMessage content={m.content} />
           </div>
         ))}
+
+        {loading && (
+          <div className="mr-auto max-w-[85%] rounded-2xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+            Thinking...
+          </div>
+        )}
       </div>
 
       {error && (
@@ -470,7 +380,7 @@ export default function Chat() {
       >
         <input
           className="min-w-0 flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-600"
-          placeholder="Type a message…"
+          placeholder="Type a message..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={loading}
