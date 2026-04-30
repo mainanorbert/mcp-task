@@ -4,6 +4,7 @@ version = "0.2.0"
 description = "Meridian Electronics customer support API (FastAPI + OpenAI Agents SDK + MCP)"
 requires-python = ">=3.11"
 dependencies = [
+    "tiktoken>=0.8.0",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "openai>=1.59.0",

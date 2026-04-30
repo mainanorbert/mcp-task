@@ -89,7 +89,7 @@ async def chat_endpoint(
             session_id,
             exc,
         )
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
     logger.info(
         "chat_request_completed request_id=%s session_id=%s reply_len=%d",
