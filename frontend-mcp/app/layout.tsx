@@ -9,19 +9,20 @@ import {
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
+const geist_sans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
+const geist_mono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Chat",
-  description: "Simple chat UI with a polite assistant backend",
+  title: "Meridian Electronics Support",
+  description:
+    "AI-powered customer support chatbot for Meridian Electronics. Browse products, log in, and manage orders through chat.",
 };
 
 export default function RootLayout({
@@ -29,21 +30,27 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  /** Root HTML shell: fonts, Clerk provider, header with auth controls. */
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geist_sans.variable} ${geist_mono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <ClerkProvider>
-          <header className="flex h-16 shrink-0 items-center justify-end gap-3 border-b border-zinc-200 px-4 dark:border-zinc-800">
-            <Show when="signed-out">
-              <SignInButton mode="modal">Sign in</SignInButton>
-              <SignUpButton mode="modal">Sign up</SignUpButton>
-            </Show>
-            <Show when="signed-in">
-              <UserButton />
-            </Show>
+          <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-zinc-200 px-4 dark:border-zinc-800">
+            <span className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+              Meridian Electronics
+            </span>
+            <div className="flex items-center gap-3">
+              <Show when="signed-out">
+                <SignInButton mode="modal">Sign in</SignInButton>
+                <SignUpButton mode="modal">Sign up</SignUpButton>
+              </Show>
+              <Show when="signed-in">
+                <UserButton />
+              </Show>
+            </div>
           </header>
           {children}
         </ClerkProvider>
