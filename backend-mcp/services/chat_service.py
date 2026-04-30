@@ -1,34 +1,74 @@
-"""OpenAI chat completion logic (no FastAPI imports)."""
+"""Chat orchestration: in-memory session + Meridian MCP agent.
 
-from openai import APIError, AsyncOpenAI
+The HTTP layer (``api/routes/chat.py``) calls :func:`handle_chat_turn`. This
+function is the only place that knows how to:
+
+  1. Look up (or create) the session in :class:`SessionStore`.
+  2. Replay the stored history to the Meridian agent.
+  3. Persist the latest user + assistant turns for the next call.
+
+It has no FastAPI imports so it stays trivially testable.
+"""
+
+from __future__ import annotations
 
 from core.logging import get_logger
+from services.mcp_agent import AgentRunError, run_support_agent
+from services.session_store import SessionStore
 
 logger = get_logger(__name__)
 
 
-class ChatCompletionError(Exception):
-    """Raised when the upstream chat completion fails."""
+class ChatServiceError(Exception):
+    """Raised when the chat turn cannot be completed."""
 
 
-async def complete_chat(
+async def handle_chat_turn(
     *,
-    client: AsyncOpenAI,
+    session_store: SessionStore,
+    session_id: str,
+    user_message: str,
     model: str,
-    system_prompt: str,
-    conversation: list[dict[str, str]],
+    instructions: str,
+    mcp_server_url: str,
+    mcp_timeout_seconds: int,
+    max_turns: int,
 ) -> str:
-    """Call the chat completions API and return the assistant text content."""
-    history = [{"role": h["role"], "content": h["content"]} for h in conversation]
-    messages = [{"role": "system", "content": system_prompt}, *history]
-    try:
-        completion = await client.chat.completions.create(
-            model=model,
-            messages=messages,
-        )
-    except APIError as exc:
-        logger.warning("openai_chat_completion_failed model=%s error=%r", model, exc)
-        raise ChatCompletionError("Upstream model request failed.") from exc
+    """Run one chat turn against the Meridian support agent.
 
-    choice = completion.choices[0].message
-    return choice.content or ""
+    Args:
+        session_store: The shared in-memory session store.
+        session_id: Stable identifier for this conversation.
+        user_message: Latest user message (already validated/non-empty).
+        model: OpenAI model id.
+        instructions: Agent system prompt.
+        mcp_server_url: Streamable-HTTP MCP endpoint.
+        mcp_timeout_seconds: HTTP read timeout for MCP.
+        max_turns: Maximum agent loop iterations.
+
+    Returns:
+        The assistant reply.
+
+    Raises:
+        ChatServiceError: If the agent loop fails. Wraps :class:`AgentRunError`.
+    """
+    session = await session_store.get_or_create(session_id)
+    history = session.as_messages()
+
+    try:
+        reply = await run_support_agent(
+            user_message=user_message,
+            history=history,
+            model=model,
+            instructions=instructions,
+            mcp_server_url=mcp_server_url,
+            mcp_timeout_seconds=mcp_timeout_seconds,
+            max_turns=max_turns,
+        )
+    except AgentRunError as exc:
+        logger.warning("chat_turn_failed session_id=%s error=%s", session_id, exc)
+        raise ChatServiceError(str(exc)) from exc
+
+    session.append("user", user_message)
+    session.append("assistant", reply)
+    return reply
