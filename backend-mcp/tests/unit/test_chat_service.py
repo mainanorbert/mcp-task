@@ -1,55 +1,102 @@
-"""Unit tests for chat completion service behavior."""
+"""Unit tests for ``services.chat_service.handle_chat_turn``.
 
-import sys
-from types import SimpleNamespace
+The Agents SDK and MCP server are mocked out so the test does not require
+network access or an OpenAI API key.
+"""
+
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
-sys.modules.setdefault(
-    "openai",
-    SimpleNamespace(APIError=Exception, AsyncOpenAI=object),
-)
-
-from services.chat_service import complete_chat
+from services.chat_service import ChatServiceError, handle_chat_turn
+from services.mcp_agent import AgentRunError
+from services.session_store import SessionStore
 
 
-class CompleteChatTests(IsolatedAsyncioTestCase):
-    async def test_complete_chat_sends_system_prompt_and_history(self):
-        client = SimpleNamespace(
-            chat=SimpleNamespace(
-                completions=SimpleNamespace(
-                    create=AsyncMock(
-                        return_value=SimpleNamespace(
-                            choices=[
-                                SimpleNamespace(
-                                    message=SimpleNamespace(content="Hello there")
-                                )
-                            ]
-                        )
-                    )
-                )
+class HandleChatTurnTests(IsolatedAsyncioTestCase):
+    """End-to-end behaviour of the chat orchestration service."""
+
+    async def test_first_turn_persists_user_and_assistant_messages(self) -> None:
+        """A fresh session is created and both messages end up in history."""
+        store = SessionStore()
+        with patch(
+            "services.chat_service.run_support_agent",
+            new=AsyncMock(return_value="Sure, here are our monitors..."),
+        ) as mocked:
+            reply = await handle_chat_turn(
+                session_store=store,
+                session_id="user:1",
+                user_message="What monitors do you sell?",
+                model="gpt-4o-mini",
+                instructions="<system>",
+                mcp_server_url="http://mcp.test/mcp",
+                mcp_timeout_seconds=10,
+                max_turns=5,
             )
-        )
-        history = [
-            {"role": "user", "content": "Hi"},
-            {"role": "assistant", "content": "Hello"},
-            {"role": "user", "content": "Remember me?"},
-        ]
 
-        result = await complete_chat(
-            client=client,
-            model="test-model",
-            system_prompt="You are helpful.",
-            conversation=history,
-        )
+        self.assertEqual(reply, "Sure, here are our monitors...")
+        mocked.assert_awaited_once()
+        kwargs = mocked.await_args.kwargs
+        self.assertEqual(kwargs["history"], [])
+        self.assertEqual(kwargs["user_message"], "What monitors do you sell?")
 
-        self.assertEqual(result, "Hello there")
-        client.chat.completions.create.assert_awaited_once_with(
-            model="test-model",
-            messages=[
-                {"role": "system", "content": "You are helpful."},
-                {"role": "user", "content": "Hi"},
-                {"role": "assistant", "content": "Hello"},
-                {"role": "user", "content": "Remember me?"},
+        session = await store.get_or_create("user:1")
+        self.assertEqual(
+            session.as_messages(),
+            [
+                {"role": "user", "content": "What monitors do you sell?"},
+                {"role": "assistant", "content": "Sure, here are our monitors..."},
             ],
         )
+
+    async def test_second_turn_replays_prior_history_to_agent(self) -> None:
+        """Stored history is forwarded so the agent has short-term memory."""
+        store = SessionStore()
+        session = await store.get_or_create("user:1")
+        session.append("user", "Hi")
+        session.append("assistant", "Hello, how can I help?")
+
+        with patch(
+            "services.chat_service.run_support_agent",
+            new=AsyncMock(return_value="Order placed."),
+        ) as mocked:
+            await handle_chat_turn(
+                session_store=store,
+                session_id="user:1",
+                user_message="Place an order for SKU-123, qty 1.",
+                model="gpt-4o-mini",
+                instructions="<system>",
+                mcp_server_url="http://mcp.test/mcp",
+                mcp_timeout_seconds=10,
+                max_turns=5,
+            )
+
+        history_arg = mocked.await_args.kwargs["history"]
+        self.assertEqual(
+            history_arg,
+            [
+                {"role": "user", "content": "Hi"},
+                {"role": "assistant", "content": "Hello, how can I help?"},
+            ],
+        )
+
+    async def test_agent_failure_is_wrapped(self) -> None:
+        """``AgentRunError`` is translated to ``ChatServiceError`` and history is unchanged."""
+        store = SessionStore()
+        with patch(
+            "services.chat_service.run_support_agent",
+            new=AsyncMock(side_effect=AgentRunError("boom")),
+        ):
+            with self.assertRaises(ChatServiceError):
+                await handle_chat_turn(
+                    session_store=store,
+                    session_id="user:1",
+                    user_message="hi",
+                    model="gpt-4o-mini",
+                    instructions="<system>",
+                    mcp_server_url="http://mcp.test/mcp",
+                    mcp_timeout_seconds=10,
+                    max_turns=5,
+                )
+
+        session = await store.get_or_create("user:1")
+        self.assertEqual(session.as_messages(), [])

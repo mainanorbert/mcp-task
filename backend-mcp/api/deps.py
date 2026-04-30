@@ -1,6 +1,7 @@
 """FastAPI dependencies for request-scoped services."""
 
 from functools import lru_cache
+from typing import Optional
 
 from fastapi import HTTPException, Request, status
 from fastapi_clerk_auth import (  # type: ignore
@@ -8,14 +9,14 @@ from fastapi_clerk_auth import (  # type: ignore
     ClerkHTTPBearer,
     HTTPAuthorizationCredentials,
 )
-from openai import AsyncOpenAI
 
 from core.config import get_settings, parse_clerk_authorized_parties
+from services.session_store import SessionStore
 
 
-def get_openai_client(request: Request) -> AsyncOpenAI:
-    """Return the shared AsyncOpenAI client stored on application state."""
-    return request.app.state.openai_client
+def get_session_store(request: Request) -> SessionStore:
+    """Return the shared in-memory session store from application state."""
+    return request.app.state.session_store
 
 
 @lru_cache
@@ -28,8 +29,20 @@ def get_clerk_guard() -> ClerkHTTPBearer:
     return ClerkHTTPBearer(ClerkConfig(jwks_url=jwks_url))
 
 
-async def require_clerk_auth(request: Request) -> HTTPAuthorizationCredentials:
-    """Validate the Clerk bearer token and return decoded credentials."""
+async def maybe_clerk_auth(
+    request: Request,
+) -> Optional[HTTPAuthorizationCredentials]:
+    """Validate Clerk auth if enabled, otherwise return ``None``.
+
+    Behavior:
+      * ``REQUIRE_AUTH=False`` -> auth is skipped; the route works for anyone.
+      * ``REQUIRE_AUTH=True``  -> token must be present and valid; the
+        ``azp`` claim must be in ``CLERK_AUTHORIZED_PARTIES`` (when set).
+    """
+    settings = get_settings()
+    if not settings.require_auth:
+        return None
+
     try:
         credentials = await get_clerk_guard()(request)
     except RuntimeError as exc:
@@ -45,7 +58,7 @@ async def require_clerk_auth(request: Request) -> HTTPAuthorizationCredentials:
         )
 
     authorized_parties = parse_clerk_authorized_parties(
-        get_settings().clerk_authorized_parties
+        settings.clerk_authorized_parties
     )
     authorized_party = credentials.decoded.get("azp")
     if authorized_parties and authorized_party not in authorized_parties:

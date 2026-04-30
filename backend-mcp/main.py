@@ -1,41 +1,57 @@
-"""ASGI entrypoint: FastAPI factory, middleware, lifespan, and router wiring only."""
+"""ASGI entrypoint: FastAPI factory, middleware, lifespan, and router wiring only.
+
+This file deliberately contains no business logic. Its responsibilities are:
+
+* Build the FastAPI app (``create_app``).
+* Configure CORS + structured request/response logging middleware.
+* Spin up shared application state in the lifespan (in-memory ``SessionStore``,
+  ensure ``OPENAI_API_KEY`` is set for the Agents SDK).
+* Mount the API routers from :mod:`api.router`.
+"""
 
 import os
 import time
-from uuid import uuid4
 from contextlib import asynccontextmanager
+from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from openai import AsyncOpenAI
 
 from api.router import api_router
 from core.config import get_settings, parse_cors_origins
 from core.logging import configure_logging, get_logger
+from services.session_store import SessionStore
 
 logger = get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create shared clients on startup and release them on shutdown."""
+    """Initialize shared state on startup and clean up on shutdown."""
     settings = get_settings()
+
     api_key = settings.openai_api_key.strip()
     if not api_key:
         raise RuntimeError(
-            "OPENAI_API_KEY is missing or empty. In Render: Dashboard → your Web "
-            "Service → Environment → add OPENAI_API_KEY, then redeploy."
+            "OPENAI_API_KEY is missing or empty. "
+            "Set it in your hosting environment (Render/Vercel/etc.) and redeploy."
         )
-    if not os.environ.get("OPENAI_API_KEY"):
-        os.environ["OPENAI_API_KEY"] = api_key
-    client = AsyncOpenAI(api_key=api_key)
-    app.state.openai_client = client
-    logger.info("application_startup model=%s", settings.openai_model)
+    os.environ.setdefault("OPENAI_API_KEY", api_key)
+
+    app.state.session_store = SessionStore()
+    logger.info(
+        "application_startup model=%s mcp_url=%s require_auth=%s",
+        settings.openai_model,
+        settings.mcp_server_url,
+        settings.require_auth,
+    )
     try:
         yield
     finally:
-        await client.close()
-        logger.info("application_shutdown")
+        logger.info(
+            "application_shutdown sessions=%d",
+            await app.state.session_store.size(),
+        )
 
 
 def create_app() -> FastAPI:
@@ -43,13 +59,18 @@ def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(settings.log_level)
     app = FastAPI(
-        title="Chat API",
-        version="0.1.0",
+        title="Meridian Electronics Support API",
+        version="0.2.0",
+        description=(
+            "Customer support chatbot backed by the OpenAI Agents SDK and the "
+            "Meridian Electronics MCP server."
+        ),
         lifespan=lifespan,
     )
 
     @app.middleware("http")
     async def log_requests(request: Request, call_next):
+        """Add a request id, log start/finish, and timing for every HTTP request."""
         request_id = request.headers.get("x-request-id") or uuid4().hex
         request.state.request_id = request_id
         started = time.perf_counter()

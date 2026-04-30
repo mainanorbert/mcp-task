@@ -1,14 +1,16 @@
 [project]
 name = "backend-mcp"
-version = "0.1.0"
-description = "Simple chat API backed by OpenAI"
+version = "0.2.0"
+description = "Meridian Electronics customer support API (FastAPI + OpenAI Agents SDK + MCP)"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "openai>=1.59.0",
+    "openai-agents>=0.14.0",
     "pydantic-settings>=2.7.0",
     "fastapi-clerk-auth>=0.0.9",
+    "python-dotenv>=1.0.1",
 ]
 
 [build-system]
@@ -17,3 +19,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["api", "core", "schemas", "services"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.3.0",
+]
