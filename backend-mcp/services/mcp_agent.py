@@ -13,7 +13,11 @@ from agents.exceptions import InputGuardrailTripwireTriggered
 from agents.mcp import MCPServerStreamableHttp
 
 from core.logging import get_logger
-from services.agent_guardrails import INPUT_TOKEN_GUARDRAIL_NAME, meridian_support_input_guardrails
+from services.agent_guardrails import (
+    INPUT_TOKEN_GUARDRAIL_NAME,
+    MAX_USER_PROMPT_TOKENS,
+    MERIDIAN_SUPPORT_INPUT_GUARDRAILS,
+)
 
 logger = get_logger(__name__)
 
@@ -86,7 +90,7 @@ async def run_support_agent(
                 instructions=instructions,
                 model=model,
                 mcp_servers=[mcp_server],
-                input_guardrails=meridian_support_input_guardrails(),
+                input_guardrails=MERIDIAN_SUPPORT_INPUT_GUARDRAILS,
             )
             with trace("meridian_customer_support_turn"):
                 result = await Runner.run(
@@ -96,12 +100,13 @@ async def run_support_agent(
                 )
     except InputGuardrailTripwireTriggered as exc:
         guardrail_name = exc.guardrail_result.guardrail.get_name()
-        if guardrail_name == INPUT_TOKEN_GUARDRAIL_NAME:
-            logger.warning("agent_run_blocked_input_guardrail name=%s", guardrail_name)
-            raise AgentPromptTooLongError(
-                "Your message exceeds the maximum of 500 tokens (model-aligned tokenizer count).",
-            ) from exc
         logger.warning("agent_run_blocked_input_guardrail name=%s", guardrail_name)
+        # Map additional input guardrail names here when MERIDIAN_SUPPORT_INPUT_GUARDRAILS grows.
+        if guardrail_name == INPUT_TOKEN_GUARDRAIL_NAME:
+            raise AgentPromptTooLongError(
+                f"Your message exceeds the maximum of {MAX_USER_PROMPT_TOKENS} tokens "
+                "(model-aligned tokenizer count).",
+            ) from exc
         raise AgentRunError("This message could not be processed due to a safety check.") from exc
     except Exception as exc:
         logger.warning(

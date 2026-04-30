@@ -94,10 +94,5 @@ def guardrail_max_user_prompt_tokens(ctx: Any, agent: Any, message: str | list[A
     )
 
 
-def meridian_support_input_guardrails() -> list[InputGuardrail[Any]]:
-    """Input guardrails applied to the Meridian MCP support agent.
-
-    Returns:
-        A list containing the token-limit guardrail (runs before the agent).
-    """
-    return [guardrail_max_user_prompt_tokens]
+# Static list for Agent(..., input_guardrails=...); extend when adding guardrails.
+MERIDIAN_SUPPORT_INPUT_GUARDRAILS: list[InputGuardrail[Any]] = [guardrail_max_user_prompt_tokens]

@@ -41,11 +41,6 @@ flowchart TB
   UI -->|"POST /chat (session + messages)"| HTTP
   MA --> OAI
   MA --> MCP
-
-  style U fill:#f4f4f5,stroke:#a1a1aa
-  style client fill:#eff6ff,stroke:#3b82f6
-  style backend fill:#f0fdf4,stroke:#22c55e
-  style external fill:#fef3c7,stroke:#d97706
 ```
 
 **Notes**
