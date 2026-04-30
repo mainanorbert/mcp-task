@@ -13,7 +13,7 @@ It has no FastAPI imports so it stays trivially testable.
 from __future__ import annotations
 
 from core.logging import get_logger
-from services.mcp_agent import AgentRunError, run_support_agent
+from services.mcp_agent import AgentPromptTooLongError, AgentRunError, run_support_agent
 from services.session_store import SessionStore
 
 logger = get_logger(__name__)
@@ -21,6 +21,11 @@ logger = get_logger(__name__)
 
 class ChatServiceError(Exception):
     """Raised when the chat turn cannot be completed."""
+
+    def __init__(self, message: str, *, status_code: int = 502) -> None:
+        """Store a human-readable error and optional HTTP status for API mapping."""
+        super().__init__(message)
+        self.status_code = status_code
 
 
 async def handle_chat_turn(
@@ -50,7 +55,8 @@ async def handle_chat_turn(
         The assistant reply.
 
     Raises:
-        ChatServiceError: If the agent loop fails. Wraps :class:`AgentRunError`.
+        ChatServiceError: If the agent loop fails. Uses HTTP 400 when the prompt is
+            over the token limit; otherwise the default status is 502.
     """
     session = await session_store.get_or_create(session_id)
     history = session.as_messages()
@@ -65,6 +71,9 @@ async def handle_chat_turn(
             mcp_timeout_seconds=mcp_timeout_seconds,
             max_turns=max_turns,
         )
+    except AgentPromptTooLongError as exc:
+        logger.warning("chat_turn_failed_prompt_too_long session_id=%s", session_id)
+        raise ChatServiceError(str(exc), status_code=400) from exc
     except AgentRunError as exc:
         logger.warning("chat_turn_failed session_id=%s error=%s", session_id, exc)
         raise ChatServiceError(str(exc)) from exc

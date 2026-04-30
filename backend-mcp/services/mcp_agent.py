@@ -9,15 +9,21 @@ from CLIs, scripts, or tests.
 from __future__ import annotations
 
 from agents import Agent, Runner, trace
+from agents.exceptions import InputGuardrailTripwireTriggered
 from agents.mcp import MCPServerStreamableHttp
 
 from core.logging import get_logger
+from services.agent_guardrails import INPUT_TOKEN_GUARDRAIL_NAME, meridian_support_input_guardrails
 
 logger = get_logger(__name__)
 
 
 class AgentRunError(Exception):
     """Raised when the agent loop fails (MCP connection error, model error, ...)."""
+
+
+class AgentPromptTooLongError(AgentRunError):
+    """Raised when the user message exceeds the configured token limit."""
 
 
 def _build_mcp_server(
@@ -80,6 +86,7 @@ async def run_support_agent(
                 instructions=instructions,
                 model=model,
                 mcp_servers=[mcp_server],
+                input_guardrails=meridian_support_input_guardrails(),
             )
             with trace("meridian_customer_support_turn"):
                 result = await Runner.run(
@@ -87,6 +94,15 @@ async def run_support_agent(
                     input=input_messages,
                     max_turns=max_turns,
                 )
+    except InputGuardrailTripwireTriggered as exc:
+        guardrail_name = exc.guardrail_result.guardrail.get_name()
+        if guardrail_name == INPUT_TOKEN_GUARDRAIL_NAME:
+            logger.warning("agent_run_blocked_input_guardrail name=%s", guardrail_name)
+            raise AgentPromptTooLongError(
+                "Your message exceeds the maximum of 500 tokens (model-aligned tokenizer count).",
+            ) from exc
+        logger.warning("agent_run_blocked_input_guardrail name=%s", guardrail_name)
+        raise AgentRunError("This message could not be processed due to a safety check.") from exc
     except Exception as exc:
         logger.warning(
             "agent_run_failed model=%s mcp=%s error=%r",
