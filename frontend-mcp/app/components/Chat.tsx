@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuth } from "@clerk/nextjs";
 import {
   type FormEvent,
   type ReactNode,
@@ -268,6 +269,7 @@ function MarkdownMessage({ content }: { content: string }) {
 }
 
 export default function Chat() {
+  const { getToken } = useAuth();
   const [messages, setMessages] = useState<ChatLine[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -299,9 +301,17 @@ export default function Chat() {
     scrollToBottom();
 
     try {
+      const token = await getToken();
+      if (!token) {
+        throw new Error("Authentication required");
+      }
+
       const res = await fetch(`${get_api_base()}/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           messages: nextHistory.map((m) => ({
             role: m.role,

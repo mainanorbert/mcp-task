@@ -1,9 +1,10 @@
 """Chat HTTP routes: validate input, delegate to service, map responses."""
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi_clerk_auth import HTTPAuthorizationCredentials  # type: ignore
 from openai import AsyncOpenAI
 
-from api.deps import get_openai_client
+from api.deps import get_openai_client, require_clerk_auth
 from core.config import get_settings
 from core.logging import get_logger
 from core.prompts import get_chat_system_prompt
@@ -18,6 +19,7 @@ logger = get_logger(__name__)
 async def chat_endpoint(
     body: ChatRequest,
     request: Request,
+    clerk_credentials: HTTPAuthorizationCredentials = Depends(require_clerk_auth),
     openai_client: AsyncOpenAI = Depends(get_openai_client),
 ) -> ChatResponse:
     """Accept a chat turn and return the assistant reply."""
@@ -29,9 +31,11 @@ async def chat_endpoint(
 
     settings = get_settings()
     request_id = getattr(request.state, "request_id", "unknown")
+    user_id = (clerk_credentials.decoded or {}).get("sub", "unknown")
     logger.info(
-        "chat_request_started request_id=%s model=%s message_count=%s",
+        "chat_request_started request_id=%s user_id=%s model=%s message_count=%s",
         request_id,
+        user_id,
         settings.openai_model,
         len(body.messages),
     )

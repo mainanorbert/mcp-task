@@ -28,6 +28,11 @@ class Settings(BaseSettings):
         default="http://localhost:3000,https://frontend-mcp-chi.vercel.app,https://mcp-task-1.onrender.com",
         description="Comma-separated browser origins allowed for CORS",
     )
+    clerk_jwks_url: str = Field(default="", description="Clerk JWKS endpoint")
+    clerk_authorized_parties: str = Field(
+        default="",
+        description="Comma-separated allowed Clerk authorized party origins",
+    )
 
 
 @lru_cache
@@ -39,3 +44,8 @@ def get_settings() -> Settings:
 def parse_cors_origins(raw: str) -> list[str]:
     """Split a comma-separated CORS origins string into a list of trimmed URLs."""
     return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+def parse_clerk_authorized_parties(raw: str) -> set[str]:
+    """Split configured Clerk authorized parties into normalized origins."""
+    return {part.strip() for part in raw.split(",") if part.strip()}
