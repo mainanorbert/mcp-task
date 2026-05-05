@@ -27,8 +27,8 @@ class ChatRequest(BaseModel):
     )
     session_id: Optional[str] = Field(
         default=None,
-        max_length=128,
-        description="Stable id for the conversation. Defaults to the auth user id.",
+        max_length=512,
+        description="Signed conversation session token returned by the API.",
     )
 
 

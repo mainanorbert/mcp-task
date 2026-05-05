@@ -6,35 +6,22 @@ business logic (memory + agent + MCP tools).
 """
 
 from typing import Optional
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi_clerk_auth import HTTPAuthorizationCredentials  # type: ignore
 
 from api.deps import get_session_store, maybe_clerk_auth
+from api.session_ids import SessionSigningSecretMissing, resolve_client_session
 from core.config import get_settings
 from core.logging import get_logger
 from core.prompts import get_meridian_system_prompt
+from core.session_tokens import SessionTokenError
 from schemas.chat import ChatRequest, ChatResponse
 from services.chat_service import ChatServiceError, handle_chat_turn
 from services.session_store import SessionStore
 
 router = APIRouter()
 logger = get_logger(__name__)
-
-
-def _resolve_session_id(
-    body_session_id: Optional[str],
-    credentials: Optional[HTTPAuthorizationCredentials],
-) -> str:
-    """Pick the session id from (priority): explicit body, Clerk user id, fresh uuid."""
-    if body_session_id:
-        return body_session_id
-    if credentials and credentials.decoded:
-        sub = credentials.decoded.get("sub")
-        if isinstance(sub, str) and sub:
-            return f"user:{sub}"
-    return f"anon:{uuid4().hex}"
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -58,7 +45,20 @@ async def chat_endpoint(
         if clerk_credentials
         else "anonymous"
     )
-    session_id = _resolve_session_id(body.session_id, clerk_credentials)
+    try:
+        resolved_session = resolve_client_session(
+            client_session_id=body.session_id,
+            credentials=clerk_credentials,
+        )
+    except SessionTokenError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail="The provided session_id is invalid for this user.",
+        ) from exc
+    except SessionSigningSecretMissing as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    session_id = resolved_session.store_session_id
     user_message = body.messages[-1].content
 
     logger.info(
@@ -97,4 +97,4 @@ async def chat_endpoint(
         session_id,
         len(reply),
     )
-    return ChatResponse(message=reply, session_id=session_id)
+    return ChatResponse(message=reply, session_id=resolved_session.client_session_id)

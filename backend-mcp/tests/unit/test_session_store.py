@@ -51,3 +51,15 @@ class SessionStoreTests(IsolatedAsyncioTestCase):
         second = await store.get_or_create("user:1")
         self.assertIsNot(first, second)
         self.assertIsNone(second.customer_id)
+
+    async def test_reset_by_prefix_drops_only_matching_sessions(self) -> None:
+        """Owner-scoped logout cleanup leaves unrelated sessions alone."""
+        store = SessionStore()
+        await store.get_or_create("user:1:a")
+        await store.get_or_create("user:1:b")
+        await store.get_or_create("user:2:a")
+
+        reset_count = await store.reset_by_prefix("user:1:")
+
+        self.assertEqual(reset_count, 2)
+        self.assertEqual(await store.size(), 1)

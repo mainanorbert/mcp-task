@@ -52,6 +52,13 @@ class Settings(BaseSettings):
         default=True,
         description="When False, the /chat route is open (useful for local testing without Clerk).",
     )
+    session_signing_secret: str = Field(
+        default="",
+        description=(
+            "Secret used to HMAC-sign browser session ids. Falls back to "
+            "OPENAI_API_KEY when empty."
+        ),
+    )
 
 
 @lru_cache

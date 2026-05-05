@@ -1,12 +1,7 @@
 import type { Metadata } from "next";
-import {
-  ClerkProvider,
-  Show,
-  SignInButton,
-  SignUpButton,
-  UserButton,
-} from "@clerk/nextjs";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Geist, Geist_Mono } from "next/font/google";
+import AuthControls from "./components/AuthControls";
 import "./globals.css";
 
 const geist_sans = Geist({
@@ -42,15 +37,7 @@ export default function RootLayout({
             <span className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
               Meridian Electronics
             </span>
-            <div className="flex items-center gap-3">
-              <Show when="signed-out">
-                <SignInButton mode="modal">Sign in</SignInButton>
-                <SignUpButton mode="modal">Sign up</SignUpButton>
-              </Show>
-              <Show when="signed-in">
-                <UserButton />
-              </Show>
-            </div>
+            <AuthControls />
           </header>
           {children}
         </ClerkProvider>

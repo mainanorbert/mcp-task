@@ -65,10 +65,22 @@ class SessionStore:
                 self._sessions[session_id] = session
             return session
 
-    async def reset(self, session_id: str) -> None:
-        """Drop the session entirely (used by a future "log out" action)."""
+    async def reset(self, session_id: str) -> bool:
+        """Drop the session entirely and report whether it existed."""
         async with self._lock:
-            self._sessions.pop(session_id, None)
+            return self._sessions.pop(session_id, None) is not None
+
+    async def reset_by_prefix(self, session_id_prefix: str) -> int:
+        """Drop every session whose id starts with ``session_id_prefix``."""
+        async with self._lock:
+            matching_session_ids = [
+                session_id
+                for session_id in self._sessions
+                if session_id.startswith(session_id_prefix)
+            ]
+            for session_id in matching_session_ids:
+                self._sessions.pop(session_id, None)
+            return len(matching_session_ids)
 
     async def size(self) -> int:
         """Return the number of currently tracked sessions (for diagnostics)."""

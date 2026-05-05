@@ -8,6 +8,11 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  get_api_base,
+  read_stored_session_id,
+  store_session_id,
+} from "../lib/chat_session";
 
 type Role = "user" | "assistant";
 
@@ -16,19 +21,12 @@ type ChatLine = {
   content: string;
 };
 
-const DEFAULT_API_BASE = "http://localhost:8000";
 const SUGGESTED_PROMPTS: string[] = [
   "What monitors do you sell?",
   "Show me wireless keyboards under $100",
   "Log me in - my email is alex@example.com",
   "Show my recent orders",
 ];
-
-function get_api_base(): string {
-  /** Return the configured backend base URL, falling back to localhost. */
-  const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "";
-  return base || DEFAULT_API_BASE;
-}
 
 function render_inline_markdown(text: string, key_prefix: string): ReactNode[] {
   /** Render a single line of inline markdown (links, code, bold, italic). */
@@ -286,7 +284,9 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(() =>
+    read_stored_session_id(),
+  );
   const list_ref = useRef<HTMLDivElement>(null);
 
   const scroll_to_bottom = useCallback(() => {
@@ -351,6 +351,7 @@ export default function Chat() {
       }
       if (typeof data.session_id === "string" && data.session_id) {
         setSessionId(data.session_id);
+        store_session_id(data.session_id);
       }
 
       setMessages([

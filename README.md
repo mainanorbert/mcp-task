@@ -158,8 +158,9 @@ uv run python -m pytest tests/ -v
 
 - Service type: **Web Service** (Docker).
 - Root directory: `backend-mcp`, Dockerfile path: `Dockerfile`.
-- Required env vars: `OPENAI_API_KEY`, `MCP_SERVER_URL`, `CORS_ORIGINS`,
-  `CLERK_JWKS_URL`, `CLERK_AUTHORIZED_PARTIES`.
+- Required env vars: `OPENAI_API_KEY`, `SESSION_SIGNING_SECRET`,
+  `MCP_SERVER_URL`, `CORS_ORIGINS`, `CLERK_JWKS_URL`,
+  `CLERK_AUTHORIZED_PARTIES`.
 - Health check path: `/health`.
 
 ### Frontend (Vercel)
@@ -175,6 +176,7 @@ uv run python -m pytest tests/ -v
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `OPENAI_API_KEY` | *(required)* | OpenAI key used by the Agents SDK. |
+| `SESSION_SIGNING_SECRET` | – | Long random secret for signed browser session ids; falls back to `OPENAI_API_KEY` when empty. |
 | `OPENAI_MODEL` | `gpt-4o-mini` | Model the agent runs on. Switch to `gpt-4o` for higher quality. |
 | `MCP_SERVER_URL` | `https://order-mcp-74afyau24q-uc.a.run.app/mcp` | Streamable-HTTP MCP endpoint. |
 | `MCP_REQUEST_TIMEOUT_SECONDS` | `30` | HTTP read timeout for MCP. |
